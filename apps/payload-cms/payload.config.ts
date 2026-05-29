@@ -34,6 +34,9 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URL || '',
     },
+    // Pour la création initiale du schéma : DB_PUSH=true
+    // En production après init : supprimer cette ligne ou mettre false
+    push: process.env.DB_PUSH === 'true',
   }),
 
   serverURL: process.env.PAYLOAD_PUBLIC_SERVER_URL || 'http://localhost:3002',
