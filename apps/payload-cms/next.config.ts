@@ -5,6 +5,15 @@ const nextConfig: NextConfig = {
   experimental: {
     reactCompiler: false,
   },
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/admin',
+        permanent: false,
+      },
+    ]
+  },
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {
       '.cjs': ['.cts', '.cjs'],
