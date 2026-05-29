@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { auth } from '@/lib/auth';
 import { getNetworkTree, getNetworkStats } from '@/lib/affiliate';
 import NetworkTree from '@/components/network/NetworkTree';
+import ReferralLinkCard from '@/components/network/ReferralLinkCard';
 
 export const metadata: Metadata = { title: 'Mon Réseau' };
 
@@ -11,6 +12,8 @@ export default async function NetworkPage() {
     getNetworkTree(session!.user.id, session!.user.mlmLevel),
     getNetworkStats(session!.user.id),
   ]);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.atline.online';
 
   return (
     <div className="space-y-6">
@@ -34,6 +37,14 @@ export default async function NetworkPage() {
           </span>
         </div>
       </div>
+
+      {/* Lien de parrainage (si le user a un code) */}
+      {session!.user.referralCode && (
+        <ReferralLinkCard
+          referralCode={session!.user.referralCode}
+          appUrl={appUrl}
+        />
+      )}
 
       <NetworkTree data={tree} />
     </div>

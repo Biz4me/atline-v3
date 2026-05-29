@@ -7,9 +7,14 @@ export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   // Routes publiques
-  if (path.startsWith('/login') || path.startsWith('/api/auth')) {
+  if (
+    path.startsWith('/login') ||
+    path.startsWith('/register') ||
+    path.startsWith('/api/auth') ||
+    path.startsWith('/api/register')
+  ) {
     // Déjà connecté → dashboard
-    if (session && path.startsWith('/login')) {
+    if (session && (path.startsWith('/login') || path.startsWith('/register'))) {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
     return NextResponse.next();
