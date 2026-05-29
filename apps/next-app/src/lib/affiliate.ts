@@ -19,7 +19,7 @@ const FALLBACK_STATS = {
 const FALLBACK_COMMISSIONS = {
   thisMonth: 0,
   lastMonth: 0,
-  trend: 0,
+  trend: 'stable' as const,
   total: 0,
 };
 
