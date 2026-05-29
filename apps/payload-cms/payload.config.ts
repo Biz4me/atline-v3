@@ -4,10 +4,10 @@ import { lexicalEditor } from '@payloadcms/richtext-lexical';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { Users } from './src/collections/Users.js';
-import { SimulatorSessions } from './src/collections/SimulatorSessions.js';
-import { Formations } from './src/collections/Formations.js';
-import { Prospects } from './src/collections/Prospects.js';
+import { Users } from './src/collections/Users';
+import { SimulatorSessions } from './src/collections/SimulatorSessions';
+import { Formations } from './src/collections/Formations';
+import { Prospects } from './src/collections/Prospects';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
