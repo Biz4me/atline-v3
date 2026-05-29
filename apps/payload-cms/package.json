@@ -1,0 +1,24 @@
+{
+  "name": "@atline/payload-cms",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "payload dev",
+    "build": "payload build",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "payload": "^3.40.0",
+    "@payloadcms/next": "^3.40.0",
+    "@payloadcms/db-postgres": "^3.40.0",
+    "@payloadcms/richtext-lexical": "^3.40.0",
+    "next": "^15.3.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "sharp": "^0.33.5",
+    "@atline/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

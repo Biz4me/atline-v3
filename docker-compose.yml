@@ -1,0 +1,76 @@
+services:
+  # ─── Bases de données ─────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: atline-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: atline
+      POSTGRES_PASSWORD: atline
+      POSTGRES_DB: atline
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: atline-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning
+
+  # ─── Outils IA & Automation ───────────────────────────────
+  n8n:
+    image: n8nio/n8n
+    container_name: atline-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=changeme
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_DATABASE=atline
+      - DB_POSTGRESDB_USER=atline
+      - DB_POSTGRESDB_PASSWORD=atline
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - postgres
+
+  # ─── Cal.com ──────────────────────────────────────────────
+  calcom:
+    image: calcom/cal.com:latest
+    container_name: atline-calcom
+    restart: unless-stopped
+    ports:
+      - "5050:3000"
+    environment:
+      - DATABASE_URL=postgresql://atline:atline@postgres:5432/calcom
+      - NEXTAUTH_SECRET=changeme
+      - CALENDSO_ENCRYPTION_KEY=changeme_32chars
+    depends_on:
+      - postgres
+
+  # ─── Portainer (supervision conteneurs) ───────────────────
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: atline-portainer
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+  portainer_data:
