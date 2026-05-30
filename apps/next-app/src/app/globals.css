@@ -1,26 +1,150 @@
 @import "tailwindcss";
 
+/* ── Variables Atline ─────────────────────────────────── */
 :root {
-  /* Palette Atline */
-  --atline-navy: #1e3c5c;
+  --atline-navy:      #1e3c5c;
   --atline-navy-dark: #0f2c44;
-  --atline-gold: #f4b342;
+  --atline-gold:      #f4b342;
   --atline-gold-dark: #d4941e;
-  --atline-blue: #2b5580;
+  --atline-blue:      #2b5580;
+  --bg-main:          #e8edf2;
 }
 
-* {
-  box-sizing: border-box;
-}
+/* ── Reset global ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
-  background: #f0f4f8;
+  background: var(--bg-main);
   color: #1e2f3e;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar Webkit */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ── Neumorphism helpers ──────────────────────────────── */
+.nm-flat {
+  background: var(--bg-main);
+  box-shadow: 6px 6px 12px #c5cad0, -6px -6px 12px #ffffff;
+  border-radius: 12px;
+}
+
+.nm-pressed {
+  background: var(--bg-main);
+  box-shadow: inset 4px 4px 8px #c5cad0, inset -4px -4px 8px #ffffff;
+  border-radius: 12px;
+}
+
+.nm-card {
+  background: #edf0f5;
+  box-shadow: 8px 8px 16px #c8cdd3, -8px -8px 16px #ffffff;
+  border-radius: 16px;
+}
+
+/* ── Sidebar neumorphic ───────────────────────────────── */
+.sidebar-nm {
+  background: linear-gradient(160deg, #1a3550 0%, #0f2c44 100%);
+  box-shadow: 6px 0 18px rgba(0,0,0,0.25);
+}
+
+.sidebar-nm .nav-active {
+  background: rgba(244, 179, 66, 0.15);
+  box-shadow: inset 2px 2px 5px rgba(0,0,0,0.3), inset -2px -2px 5px rgba(255,255,255,0.05);
+  border-left: 3px solid var(--atline-gold);
+  color: var(--atline-gold) !important;
+}
+
+/* ── Boutons ──────────────────────────────────────────── */
+.btn-atline {
+  background: linear-gradient(135deg, #1e3c5c, #2b5580);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-weight: 600;
+  box-shadow: 4px 4px 8px #c5cad0, -2px -2px 6px #ffffff;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.btn-atline:hover {
+  box-shadow: 2px 2px 5px #c5cad0, -1px -1px 4px #ffffff;
+  transform: translateY(1px);
+}
+.btn-atline:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-gold {
+  background: linear-gradient(135deg, #f4b342, #d4941e);
+  color: #1e2f3e;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-weight: 700;
+  box-shadow: 4px 4px 8px #c5cad0, -2px -2px 6px #ffffff;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+/* ── Inputs ───────────────────────────────────────────── */
+.input-nm {
+  background: var(--bg-main);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: inset 3px 3px 6px #c5cad0, inset -3px -3px 6px #ffffff;
+  outline: none;
+  color: #1e2f3e;
+  width: 100%;
+  font-size: 0.875rem;
+  transition: box-shadow 0.2s;
+}
+.input-nm:focus {
+  box-shadow: inset 4px 4px 8px #b8bdc3, inset -4px -4px 8px #ffffff;
+}
+
+/* ── Chat bubble ──────────────────────────────────────── */
+.bubble-user {
+  background: linear-gradient(135deg, #1e3c5c, #2b5580);
+  color: #fff;
+  border-radius: 18px 18px 4px 18px;
+  padding: 10px 14px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  max-width: 72%;
+}
+.bubble-bot {
+  background: #edf0f5;
+  color: #1e2f3e;
+  border-radius: 18px 18px 18px 4px;
+  padding: 10px 14px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  max-width: 72%;
+  box-shadow: 4px 4px 8px #c5cad0, -4px -4px 8px #ffffff;
+}
+
+/* ── Tabs ─────────────────────────────────────────────── */
+.tabs-nm {
+  background: #e0e5eb;
+  border-radius: 12px;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+}
+.tab-nm {
+  padding: 8px 16px;
+  border-radius: 9px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: transparent;
+}
+.tab-nm[data-state="active"], .tab-nm.active {
+  background: #edf0f5;
+  color: #1e3c5c;
+  box-shadow: 3px 3px 6px #c5cad0, -3px -3px 6px #ffffff;
+}
+
+/* ── Scrollbar ────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: #c5cad0; border-radius: 3px; }

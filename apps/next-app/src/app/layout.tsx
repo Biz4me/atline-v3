@@ -24,6 +24,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        <link rel="stylesheet" href="/neumorphism.css" />
+      </head>
       <body className={inter.className}>{children}</body>
     </html>
   );
