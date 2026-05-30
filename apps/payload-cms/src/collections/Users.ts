@@ -1,46 +1,69 @@
 import type { CollectionConfig, CollectionBeforeChangeHook, CollectionAfterChangeHook } from 'payload';
 import { randomBytes } from 'node:crypto';
 
-// ── Hook : génère un inviteToken unique à la création (ou si manquant) ────────
+// ── Calcul automatique du niveau MLM ─────────────────────────────────────────
+function computeMlmLevel(directCount: number): number {
+  if (directCount >= 100) return 7;
+  if (directCount >= 50)  return 6;
+  if (directCount >= 20)  return 5;
+  if (directCount >= 10)  return 4;
+  if (directCount >= 5)   return 3;
+  if (directCount >= 2)   return 2;
+  if (directCount >= 1)   return 1;
+  return 0;
+}
+
+// ── Hook 1 : force le rôle client pour toute création non authentifiée ────────
+// Sécurité : empêche qu'une requête publique crée un admin ou un distributeur
+const enforceClientRole: CollectionBeforeChangeHook = async ({ data, operation, req }) => {
+  if (operation !== 'create') return data;
+  if (!req.user) {
+    data.role     = 'client';
+    data.hasLicence = false;
+    data.hasCoach   = false;
+    data.mlmLevel   = 0;
+  }
+  return data;
+};
+
+// ── Hook 2 : génère un referralCode unique (ex : "A3F7K2M9") ─────────────────
+// Indispensable : sans ce code, l'utilisateur ne peut pas créer de liens d'invitation
+const generateReferralCode: CollectionBeforeChangeHook = async ({ data, operation }) => {
+  if (operation !== 'create' || data.referralCode) return data;
+  data.referralCode = randomBytes(4).toString('hex').toUpperCase();
+  return data;
+};
+
+// ── Hook 3 : génère un inviteToken opaque (ex : "aB3kR9mX") ──────────────────
 const generateInviteToken: CollectionBeforeChangeHook = async ({ data, operation, originalDoc }) => {
-  // Créer : toujours générer
   if (operation === 'create' && !data.inviteToken) {
     data.inviteToken = randomBytes(6).toString('base64url');
   }
-  // Mettre à jour : générer seulement si l'utilisateur n'en a pas encore
+  // Backfill : si un compte existant n'a pas de token, en générer un à la prochaine sauvegarde
   if (operation === 'update' && !originalDoc?.inviteToken && !data.inviteToken) {
     data.inviteToken = randomBytes(6).toString('base64url');
   }
   return data;
 };
 
-// ── Hook : définit la fenêtre de placement (création uniquement) ──────────────
+// ── Hook 4 : fenêtre de placement J+30 ───────────────────────────────────────
 const setPlacementDeadline: CollectionBeforeChangeHook = async ({ data, operation }) => {
   if (operation !== 'create') return data;
   const deadline = new Date();
-  deadline.setDate(deadline.getDate() + 30); // J+30
+  deadline.setDate(deadline.getDate() + 30);
   data.placementDeadline = deadline.toISOString();
   return data;
 };
 
-// ── Hook : résout effectiveDistributor à la création ─────────────────────────
-const resolveEffectiveDistributor: CollectionBeforeChangeHook = async ({
-  data,
-  operation,
-  req,
-}) => {
+// ── Hook 5 : résout le parrain et le distributeur effectif ───────────────────
+// Ne bloque plus si pas de code parrain (clients simples ou pending_placement)
+const resolveEffectiveDistributor: CollectionBeforeChangeHook = async ({ data, operation, req }) => {
   if (operation !== 'create') return data;
 
-  // Les admins peuvent créer des comptes sans code parrain (ex: 1er admin)
-  const isAdmin = req.user?.role === 'admin';
   const referralCode = data.referralCode_input as string | undefined;
 
-  if (!referralCode) {
-    if (!isAdmin) {
-      throw new Error('Un code de parrainage est obligatoire pour créer un compte.');
-    }
-    return data;
-  }
+  // Pas de code parrain → client simple ou distributeur en attente (pending_placement)
+  if (!referralCode) return data;
 
   // Trouver le parrain via son referralCode
   const result = await req.payload.find({
@@ -50,50 +73,43 @@ const resolveEffectiveDistributor: CollectionBeforeChangeHook = async ({
   });
 
   const parrain = result.docs[0];
-  if (!parrain) return data;
+  if (!parrain) return data; // Code invalide → on ignore silencieusement
 
-  // Lier le parrain direct
   data.referredBy = parrain.id;
 
-  // Résoudre le distributeur effectif
+  // Distributeur effectif = le parrain s'il est distributeur, sinon son propre effectiveDistributor
   if (parrain.role === 'distributor') {
     data.effectiveDistributor = parrain.id;
   } else {
-    // Le parrain est un client → utiliser son effectiveDistributor
-    data.effectiveDistributor = (parrain as { effectiveDistributor?: { id?: number } | number })
-      .effectiveDistributor
-      ? typeof parrain.effectiveDistributor === 'object'
-        ? (parrain.effectiveDistributor as { id: number }).id
-        : parrain.effectiveDistributor
+    const parentEffective = parrain.effectiveDistributor;
+    data.effectiveDistributor = parentEffective
+      ? typeof parentEffective === 'object'
+        ? (parentEffective as { id: number }).id
+        : parentEffective
       : null;
   }
 
   return data;
 };
 
-// ── Hook : quand un client devient distributeur, transférer ses filleuls ──────
+// ── Hook afterChange : quand client → distributeur, transférer ses filleuls ───
 const onRoleChange: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
-  const becameDistributor =
-    previousDoc?.role !== 'distributor' && doc.role === 'distributor';
-
+  const becameDistributor = previousDoc?.role !== 'distributor' && doc.role === 'distributor';
   if (!becameDistributor) return doc;
 
-  // Tous les filleuls directs dont effectiveDistributor était l'ancien distributeur
-  const oldEffectiveDistributorId =
-    previousDoc?.effectiveDistributor
-      ? typeof previousDoc.effectiveDistributor === 'object'
-        ? previousDoc.effectiveDistributor.id
-        : previousDoc.effectiveDistributor
-      : null;
+  const oldDistId = previousDoc?.effectiveDistributor
+    ? typeof previousDoc.effectiveDistributor === 'object'
+      ? previousDoc.effectiveDistributor.id
+      : previousDoc.effectiveDistributor
+    : null;
 
-  // 1. Trouver tous les users référés directement par ce user (referredBy = doc.id)
+  // Transférer tous les filleuls directs vers le nouveau distributeur
   const directReferees = await req.payload.find({
     collection: 'users',
     where: { referredBy: { equals: doc.id } },
     limit: 1000,
   });
 
-  // 2. Les mettre à jour → effectiveDistributor = doc.id (le nouveau distributeur)
   await Promise.all(
     directReferees.docs.map((user) =>
       req.payload.update({
@@ -104,83 +120,112 @@ const onRoleChange: CollectionAfterChangeHook = async ({ doc, previousDoc, req }
     )
   );
 
-  // 3. Recalculer directCount de l'ancien distributeur effectif
-  if (oldEffectiveDistributorId) {
-    const oldCount = await req.payload.find({
+  // Recalculer l'ancien distributeur effectif
+  if (oldDistId) {
+    const oldRes = await req.payload.find({
       collection: 'users',
-      where: { effectiveDistributor: { equals: oldEffectiveDistributorId } },
+      where: { effectiveDistributor: { equals: oldDistId } },
       limit: 0,
     });
+    const oldCount = oldRes.totalDocs;
     await req.payload.update({
       collection: 'users',
-      id: oldEffectiveDistributorId,
-      data: { directCount: oldCount.totalDocs },
+      id: oldDistId,
+      data: { directCount: oldCount, mlmLevel: computeMlmLevel(oldCount) },
     });
   }
 
-  // 4. directCount du nouveau distributeur = ses filleuls directs transférés
-  const newCount = await req.payload.find({
+  // Recalculer le nouveau distributeur
+  const newRes = await req.payload.find({
     collection: 'users',
     where: { effectiveDistributor: { equals: doc.id } },
     limit: 0,
   });
+  const newCount = newRes.totalDocs;
   await req.payload.update({
     collection: 'users',
     id: doc.id,
     data: {
-      effectiveDistributor: doc.id, // il est son propre distributeur effectif
-      directCount: newCount.totalDocs,
+      effectiveDistributor: doc.id,
+      directCount: newCount,
+      mlmLevel: computeMlmLevel(newCount),
     },
   });
 
   return doc;
 };
 
-// ── Hook : màj directCount du distributeur effectif après chaque inscription ──
+// ── Hook afterChange : màj directCount + mlmLevel après chaque inscription ────
 const updateDistributorCount: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
   if (operation !== 'create') return doc;
 
-  const effectiveDistributorId = doc.effectiveDistributor
+  const distId = doc.effectiveDistributor
     ? typeof doc.effectiveDistributor === 'object'
       ? doc.effectiveDistributor.id
       : doc.effectiveDistributor
     : null;
 
-  if (!effectiveDistributorId) return doc;
+  if (!distId) return doc;
 
-  const count = await req.payload.find({
+  const countRes = await req.payload.find({
     collection: 'users',
-    where: { effectiveDistributor: { equals: effectiveDistributorId } },
+    where: { effectiveDistributor: { equals: distId } },
     limit: 0,
   });
 
+  const count = countRes.totalDocs;
   await req.payload.update({
     collection: 'users',
-    id: effectiveDistributorId,
-    data: { directCount: count.totalDocs },
+    id: distId,
+    data: { directCount: count, mlmLevel: computeMlmLevel(count) },
   });
 
   return doc;
 };
 
-// ── Collection ────────────────────────────────────────────────────────────────
+// ── Collection Users ──────────────────────────────────────────────────────────
 export const Users: CollectionConfig = {
   slug: 'users',
   auth: {
     useAPIKey: true,
   },
+
   admin: {
-    useAsTitle: 'email',
-    defaultColumns: ['email', 'name', 'role', 'hasLicence', 'hasCoach', 'mlmLevel'],
+    useAsTitle: 'name',
+    defaultColumns: ['name', 'email', 'role', 'hasLicence', 'pendingPlacement', 'createdAt'],
     group: 'Utilisateurs',
+    description: 'Admins, distributeurs et clients de la plateforme Atline',
+  },
+
+  access: {
+    create: () => true, // Inscription publique — enforceClientRole sécurise le rôle
+    read: ({ req }) => {
+      if ((req?.user as { role?: string } | null)?.role === 'admin') return true;
+      return req?.user ? { id: { equals: req.user.id } } : false;
+    },
+    update: ({ req }) => {
+      if ((req?.user as { role?: string } | null)?.role === 'admin') return true;
+      return req?.user ? { id: { equals: req.user.id } } : false;
+    },
+    delete: ({ req }) => (req?.user as { role?: string } | null)?.role === 'admin',
   },
 
   hooks: {
-    beforeChange: [generateInviteToken, setPlacementDeadline, resolveEffectiveDistributor],
-    afterChange: [onRoleChange, updateDistributorCount],
+    beforeChange: [
+      enforceClientRole,         // 1. Sécurité rôle
+      generateReferralCode,      // 2. Code parrainage unique
+      generateInviteToken,       // 3. Token lien invitation
+      setPlacementDeadline,      // 4. Fenêtre placement J+30
+      resolveEffectiveDistributor, // 5. Résolution parrain
+    ],
+    afterChange: [
+      onRoleChange,              // Promotion client → distributeur
+      updateDistributorCount,    // directCount + mlmLevel auto
+    ],
   },
 
   fields: [
+    // ── Identité ─────────────────────────────────────────────────────────────
     {
       name: 'name',
       type: 'text',
@@ -198,10 +243,13 @@ export const Users: CollectionConfig = {
         { label: 'Distributeur', value: 'distributor' },
         { label: 'Client', value: 'client' },
       ],
-      admin: { position: 'sidebar' },
+      admin: {
+        position: 'sidebar',
+        description: 'Le rôle "distributeur" est attribué après paiement de la licence (Stripe webhook)',
+      },
     },
 
-    // ── Parrainage ────────────────────────────────────────────────────────────
+    // ── Parrainage & réseau ───────────────────────────────────────────────────
     {
       name: 'referredBy',
       type: 'relationship',
@@ -209,7 +257,7 @@ export const Users: CollectionConfig = {
       hasMany: false,
       label: 'Parrainé par',
       admin: {
-        description: 'Parrain direct (client ou distributeur)',
+        description: 'Parrain direct (résolu automatiquement à l\'inscription)',
         position: 'sidebar',
         readOnly: true,
       },
@@ -221,7 +269,7 @@ export const Users: CollectionConfig = {
       hasMany: false,
       label: 'Distributeur effectif',
       admin: {
-        description: 'Distributeur auquel cet utilisateur est réellement rattaché',
+        description: 'Distributeur auquel cet utilisateur est rattaché pour les commissions MLM',
         position: 'sidebar',
         readOnly: true,
       },
@@ -231,42 +279,56 @@ export const Users: CollectionConfig = {
       type: 'text',
       unique: true,
       label: 'Code de parrainage',
-      admin: { position: 'sidebar' },
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Généré automatiquement — utilisé dans les liens d\'invitation',
+      },
     },
     {
       name: 'inviteToken',
       type: 'text',
       unique: true,
-      label: 'Token d\'invitation',
+      label: 'Token invitation',
       admin: {
         position: 'sidebar',
         readOnly: true,
-        description: 'Token opaque pour le lien /invite/TOKEN — généré automatiquement',
+        description: 'URL partageable : app.atline.online/invite/[token]',
       },
     },
     {
       name: 'placementDeadline',
       type: 'date',
-      label: 'Fin de la fenêtre de placement',
+      label: 'Placement possible jusqu\'au',
       admin: {
         position: 'sidebar',
         readOnly: true,
-        description: 'Jusqu\'à cette date, le parrain peut placer cet utilisateur sous un distributeur filleul (J+30 depuis l\'inscription)',
+        description: 'Le parrain peut placer ce membre dans son réseau jusqu\'à cette date (J+30)',
         date: {
           pickerAppearance: 'dayAndTime',
           displayFormat: 'd MMM yyyy HH:mm',
         },
       },
     },
+    {
+      name: 'pendingPlacement',
+      type: 'checkbox',
+      defaultValue: false,
+      label: '⏳ En attente d\'un parrain',
+      admin: {
+        position: 'sidebar',
+        description: 'Cochez pour les distributeurs sans parrain → à assigner via le super-placement Atline',
+      },
+    },
 
-    // Champ virtuel utilisé uniquement à l'inscription (non stocké)
+    // Champ virtuel non stocké — passé à la création via le formulaire
     {
       name: 'referralCode_input',
       type: 'text',
-      label: 'Code parrain (à l\'inscription)',
+      label: 'Code parrain (formulaire d\'inscription)',
       admin: {
         hidden: true,
-        description: 'Rempli automatiquement depuis le lien de parrainage',
+        description: 'Transmis depuis le lien de parrainage — non stocké en base',
       },
       virtual: true,
     },
@@ -277,14 +339,20 @@ export const Users: CollectionConfig = {
       type: 'checkbox',
       defaultValue: false,
       label: 'Licence active',
-      admin: { position: 'sidebar' },
+      admin: {
+        position: 'sidebar',
+        description: 'Donne accès au réseau MLM et aux commissions (99€/an via Stripe)',
+      },
     },
     {
       name: 'hasCoach',
       type: 'checkbox',
       defaultValue: false,
       label: 'Coach IA actif',
-      admin: { position: 'sidebar' },
+      admin: {
+        position: 'sidebar',
+        description: 'Simulateur vocal + formations IA (39€/mois via Stripe)',
+      },
     },
 
     // ── MLM ───────────────────────────────────────────────────────────────────
@@ -292,10 +360,13 @@ export const Users: CollectionConfig = {
       name: 'mlmLevel',
       type: 'number',
       defaultValue: 0,
-      label: 'Niveau MLM',
+      min: 0,
+      max: 7,
+      label: 'Niveau MLM (0-7)',
       admin: {
-        description: '0 = non activé, 1-7 selon directs actifs',
         position: 'sidebar',
+        readOnly: true,
+        description: 'Calculé automatiquement selon le nombre de filleuls directs actifs',
       },
     },
     {
@@ -303,7 +374,11 @@ export const Users: CollectionConfig = {
       type: 'number',
       defaultValue: 0,
       label: 'Filleuls directs actifs',
-      admin: { position: 'sidebar', readOnly: true },
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Mis à jour automatiquement à chaque inscription ou placement',
+      },
     },
 
     // ── Stripe ────────────────────────────────────────────────────────────────
@@ -311,7 +386,11 @@ export const Users: CollectionConfig = {
       name: 'stripeCustomerId',
       type: 'text',
       label: 'Stripe Customer ID',
-      admin: { readOnly: true, position: 'sidebar' },
+      admin: {
+        readOnly: true,
+        position: 'sidebar',
+        description: 'Rempli automatiquement lors du premier paiement Stripe',
+      },
     },
   ],
 };

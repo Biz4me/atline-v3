@@ -35,13 +35,12 @@ export async function GET(
   }
 
   if (!referralCode) {
-    // Token invalide → page d'erreur propre
-    return NextResponse.redirect(
-      new URL('/register', baseUrl) // /register sans ref affiche l'erreur "invitation requise"
-    );
+    // Token invalide → redirection vers le formulaire distributeur (mode manual)
+    return NextResponse.redirect(new URL('/devenir-distributeur', baseUrl));
   }
 
-  const response = NextResponse.redirect(new URL('/register', baseUrl));
+  // Token valide → vers la page d'inscription distributeur
+  const response = NextResponse.redirect(new URL('/devenir-distributeur', baseUrl));
 
   // First-click : on ne pose le cookie que s'il n'existe pas déjà
   const cookieStore = await cookies();

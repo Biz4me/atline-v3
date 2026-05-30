@@ -115,8 +115,8 @@ export default function DistributorForm({ lockedRef, sponsorName }: Props) {
         : null;
 
     const body = effectiveCode
-      ? { name: fullName, email, password, referralCode: effectiveCode, role: "distributor" }
-      : { name: fullName, email, password, pending_placement: true, role: "distributor" };
+      ? { name: fullName, email, password, referralCode: effectiveCode }
+      : { name: fullName, email, password, pendingPlacement: true };
 
     const res = await fetch("/api/register", {
       method: "POST",

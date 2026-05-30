@@ -5,7 +5,7 @@ const COOKIE_NAME = 'atline_ref';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, email, password, referralCode, pending_placement, role } = body;
+    const { name, email, password, referralCode, pendingPlacement } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -19,19 +19,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Service indisponible.' }, { status: 503 });
     }
 
-    // Construire le payload pour Payload CMS
-    // Le hook resolveEffectiveDistributor sur le serveur gérera le referralCode
-    const userPayload: Record<string, unknown> = {
-      name,
-      email,
-      password,
-      role: role ?? 'client',
-    };
+    // Payload CMS reçoit les données brutes
+    // enforceClientRole (hook) force toujours role=client pour les appels non authentifiés
+    // resolveEffectiveDistributor (hook) résout le parrain si referralCode_input est fourni
+    const userPayload: Record<string, unknown> = { name, email, password };
 
     if (referralCode) {
+      // Champ virtuel lu par le hook resolveEffectiveDistributor
       userPayload.referralCode_input = referralCode;
-    } else if (pending_placement) {
-      userPayload.pending_placement = true;
+    }
+
+    if (pendingPlacement) {
+      // Distributeur sans parrain → en attente d'assignation par Atline
+      userPayload.pendingPlacement = true;
     }
 
     const res = await fetch(`${payloadUrl}/users`, {
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: message }, { status: res.status });
     }
 
-    // Succès → effacer le cookie d'attribution
+    // Succès → effacer le cookie d'attribution (parrain résolu)
     const response = NextResponse.json({ success: true }, { status: 201 });
     response.cookies.set(COOKIE_NAME, '', { maxAge: 0, path: '/' });
     return response;

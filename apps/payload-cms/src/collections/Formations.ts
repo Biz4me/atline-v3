@@ -2,6 +2,12 @@ import type { CollectionConfig } from 'payload';
 
 export const Formations: CollectionConfig = {
   slug: 'formations',
+  access: {
+    read: ({ req }) => Boolean(req.user),  // Tout utilisateur connecté
+    create: ({ req }) => (req.user as { role?: string } | null)?.role === 'admin',
+    update: ({ req }) => (req.user as { role?: string } | null)?.role === 'admin',
+    delete: ({ req }) => (req.user as { role?: string } | null)?.role === 'admin',
+  },
   admin: {
     useAsTitle: 'title',
     defaultColumns: ['title', 'category', 'level', 'durationMinutes', 'requiredRole'],
