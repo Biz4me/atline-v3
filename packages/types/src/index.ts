@@ -16,6 +16,7 @@ export interface AtlineUser {
   hasCoach: boolean;         // Atline Coach MLM (39€/mois)
   // MLM
   referralCode: string;
+  inviteToken: string;       // Token opaque pour /invite/TOKEN (masque le referralCode)
   sponsorId?: string;
   mlmLevel: number;          // Niveau débloqué (1-7)
   directCount: number;       // Filleuls directs actifs

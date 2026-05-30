@@ -1,8 +1,10 @@
 import { Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import RegisterForm from '@/components/auth/RegisterForm';
 
 export const metadata: Metadata = { title: 'Créer un compte' };
+
+const COOKIE_NAME = 'atline_ref';
 
 interface Props {
   searchParams: Promise<{ ref?: string }>;
@@ -19,10 +21,8 @@ async function getSponsor(
     const res = await fetch(
       `${payloadUrl}/users?where[referralCode][equals]=${encodeURIComponent(referralCode)}&limit=1`,
       {
-        headers: {
-          Authorization: `users API-Key ${process.env.PAYLOAD_API_KEY}`,
-        },
-        next: { revalidate: 0 }, // toujours frais
+        headers: { Authorization: `users API-Key ${process.env.PAYLOAD_API_KEY}` },
+        next: { revalidate: 0 },
       }
     );
     if (!res.ok) return null;
@@ -36,9 +36,14 @@ async function getSponsor(
 }
 
 export default async function RegisterPage({ searchParams }: Props) {
-  const { ref } = await searchParams;
+  const { ref: refParam } = await searchParams;
 
-  // Pas de code → page d'erreur inline
+  // Priorité : ?ref= dans l'URL, sinon cookie first-click
+  const cookieStore = await cookies();
+  const refFromCookie = cookieStore.get(COOKIE_NAME)?.value;
+  const ref = refParam ?? refFromCookie;
+
+  // Aucun code parrain (ni URL ni cookie) → page d'erreur
   if (!ref) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e3c5c] to-[#0f2c44] p-4">
@@ -68,11 +73,11 @@ export default async function RegisterPage({ searchParams }: Props) {
           <div className="bg-white rounded-2xl p-8 shadow-2xl">
             <div className="text-4xl mb-4">❌</div>
             <h1 className="text-xl font-bold text-[#1e3c5c] mb-3">
-              Code de parrainage invalide
+              Lien d&apos;invitation invalide
             </h1>
             <p className="text-gray-500 text-sm leading-relaxed">
               Ce lien d&apos;invitation est introuvable ou a expiré. Contactez
-              votre distributeur pour obtenir un nouveau lien.
+              votre parrain pour obtenir un nouveau lien.
             </p>
           </div>
         </div>

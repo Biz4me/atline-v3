@@ -1,4 +1,15 @@
 import type { CollectionConfig, CollectionBeforeChangeHook, CollectionAfterChangeHook } from 'payload';
+import { randomBytes } from 'node:crypto';
+
+// ── Hook : génère un inviteToken unique à la création ─────────────────────────
+const generateInviteToken: CollectionBeforeChangeHook = async ({ data, operation }) => {
+  if (operation !== 'create') return data;
+  if (!data.inviteToken) {
+    // 6 bytes → 8 chars base64url (64^8 ≈ 281 billions de combinaisons)
+    data.inviteToken = randomBytes(6).toString('base64url');
+  }
+  return data;
+};
 
 // ── Hook : résout effectiveDistributor à la création ─────────────────────────
 const resolveEffectiveDistributor: CollectionBeforeChangeHook = async ({
@@ -153,7 +164,7 @@ export const Users: CollectionConfig = {
   },
 
   hooks: {
-    beforeChange: [resolveEffectiveDistributor],
+    beforeChange: [generateInviteToken, resolveEffectiveDistributor],
     afterChange: [onRoleChange, updateDistributorCount],
   },
 
@@ -209,6 +220,17 @@ export const Users: CollectionConfig = {
       unique: true,
       label: 'Code de parrainage',
       admin: { position: 'sidebar' },
+    },
+    {
+      name: 'inviteToken',
+      type: 'text',
+      unique: true,
+      label: 'Token d\'invitation',
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Token opaque pour le lien /invite/TOKEN — généré automatiquement',
+      },
     },
     // Champ virtuel utilisé uniquement à l'inscription (non stocké)
     {

@@ -38,6 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             mlmLevel: user.mlmLevel,
             directCount: user.directCount,
             referralCode: user.referralCode,
+            inviteToken: user.inviteToken,
           };
         } catch {
           return null;
@@ -56,6 +57,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.mlmLevel = (user as AtlineUser).mlmLevel;
         token.directCount = (user as AtlineUser).directCount;
         token.referralCode = (user as AtlineUser).referralCode;
+        token.inviteToken = (user as AtlineUser).inviteToken;
       }
       return token;
     },
@@ -67,6 +69,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.mlmLevel = token.mlmLevel as number;
       session.user.directCount = token.directCount as number;
       session.user.referralCode = token.referralCode as string;
+      session.user.inviteToken = token.inviteToken as string;
       return session;
     },
   },

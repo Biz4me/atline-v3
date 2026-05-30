@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { Copy, Check, Share2 } from 'lucide-react';
 
 interface Props {
-  referralCode: string;
+  inviteToken: string;
   appUrl: string;
 }
 
-export default function ReferralLinkCard({ referralCode, appUrl }: Props) {
-  const link = `${appUrl}/register?ref=${referralCode}`;
+export default function ReferralLinkCard({ inviteToken, appUrl }: Props) {
+  const link = `${appUrl}/invite/${inviteToken}`;
   const [copied, setCopied] = useState(false);
 
   async function copyLink() {
@@ -37,22 +37,14 @@ export default function ReferralLinkCard({ referralCode, appUrl }: Props) {
           <Share2 className="text-[#f4b342]" size={18} />
         </div>
         <div>
-          <h3 className="font-semibold text-[#1e3c5c] text-sm">Mon lien de parrainage</h3>
+          <h3 className="font-semibold text-[#1e3c5c] text-sm">Mon lien d&apos;invitation</h3>
           <p className="text-xs text-gray-400">Partagez ce lien pour inviter de nouveaux filleuls</p>
         </div>
       </div>
 
-      {/* Code */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs text-gray-500">Code&nbsp;:</span>
-        <span className="font-mono font-bold text-[#1e3c5c] bg-gray-50 border border-gray-200 rounded-lg px-3 py-1 text-sm">
-          {referralCode}
-        </span>
-      </div>
-
       {/* URL */}
       <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between gap-3 border border-gray-100 mb-4">
-        <span className="text-xs text-gray-500 truncate flex-1 font-mono">{link}</span>
+        <span className="text-xs text-gray-600 truncate flex-1 font-mono">{link}</span>
       </div>
 
       {/* Actions */}
@@ -70,6 +62,7 @@ export default function ReferralLinkCard({ referralCode, appUrl }: Props) {
         <button
           onClick={shareLink}
           className="flex items-center justify-center gap-2 border border-gray-200 text-gray-600 rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+          title="Partager"
         >
           <Share2 size={15} />
         </button>

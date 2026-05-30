@@ -11,6 +11,7 @@ declare module 'next-auth' {
       mlmLevel: number;
       directCount: number;
       referralCode: string;
+      inviteToken: string;
     } & DefaultSession['user'];
   }
 

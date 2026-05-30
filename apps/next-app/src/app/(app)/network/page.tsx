@@ -38,10 +38,10 @@ export default async function NetworkPage() {
         </div>
       </div>
 
-      {/* Lien de parrainage (si le user a un code) */}
-      {session!.user.referralCode && (
+      {/* Lien d'invitation (si le user a un token) */}
+      {session!.user.inviteToken && (
         <ReferralLinkCard
-          referralCode={session!.user.referralCode}
+          inviteToken={session!.user.inviteToken}
           appUrl={appUrl}
         />
       )}
