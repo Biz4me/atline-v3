@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, Bot, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -84,13 +85,15 @@ export default function MailPostChat() {
               </div>
             )}
             <div
-              className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+              className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                 msg.role === 'user'
                   ? 'bg-[#1e3c5c] text-white rounded-tr-sm'
-                  : 'bg-gray-100 text-gray-800 rounded-tl-sm'
+                  : 'bg-gray-100 text-gray-800 rounded-tl-sm prose prose-sm max-w-none'
               }`}
             >
-              {msg.content}
+              {msg.role === 'user' ? msg.content : (
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
+              )}
             </div>
             {msg.role === 'user' && (
               <div className="w-8 h-8 rounded-full bg-[#f4b342] flex items-center justify-center shrink-0 mt-0.5">
