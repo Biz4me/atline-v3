@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
   ];
 
   let response = await anthropic.messages.create({
-    model: 'claude-3-5-haiku-20241022',
+    model: 'claude-3-7-sonnet-20250219',
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     tools: TOOLS,
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
     messages.push({ role: 'user', content: toolResults });
 
     response = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-3-7-sonnet-20250219',
       max_tokens: 2048,
       system: SYSTEM_PROMPT,
       tools: TOOLS,
