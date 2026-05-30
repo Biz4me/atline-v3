@@ -1,8 +1,10 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { streamText, tool } from 'ai';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { z } from 'zod';
 
-const anthropic = new Anthropic({
+const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
@@ -14,47 +16,6 @@ Réponds toujours en français, de façon concise et professionnelle.
 Quand tu effectues une action, confirme-la avec les détails essentiels.
 Ne répète jamais le contenu brut des outils — synthétise et présente de façon lisible.`;
 
-const TOOLS: Anthropic.Tool[] = [
-  {
-    name: 'send_email',
-    description: 'Envoie un email via Gmail au nom de l\'utilisateur.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        to: { type: 'string', description: 'Adresse email du destinataire' },
-        subject: { type: 'string', description: 'Sujet de l\'email' },
-        body: { type: 'string', description: 'Corps de l\'email (texte brut)' },
-        from_name: { type: 'string', description: 'Nom affiché de l\'expéditeur (optionnel, défaut: MailPost)' },
-      },
-      required: ['to', 'subject', 'body'],
-    },
-  },
-  {
-    name: 'get_inbox',
-    description: 'Récupère les emails non lus de la boîte de réception (50 max).',
-    input_schema: {
-      type: 'object' as const,
-      properties: {},
-    },
-  },
-  {
-    name: 'scan_newsletters',
-    description: 'Scanne la boîte mail pour identifier les newsletters et abonnements des 30 derniers jours.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {},
-    },
-  },
-  {
-    name: 'empty_trash',
-    description: 'Vide la corbeille Gmail de l\'utilisateur.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {},
-    },
-  },
-];
-
 async function callN8N(path: string, body: Record<string, unknown> = {}) {
   const res = await fetch(`${N8N_BASE}/${path}`, {
     method: 'POST',
@@ -65,82 +26,49 @@ async function callN8N(path: string, body: Record<string, unknown> = {}) {
   return res.json();
 }
 
-async function executeTool(name: string, input: Record<string, unknown>) {
-  switch (name) {
-    case 'send_email':
-      return callN8N('mailpost/send-email', input);
-    case 'get_inbox':
-      return callN8N('mailpost/get-inbox');
-    case 'scan_newsletters':
-      return callN8N('mailpost/scan-newsletters');
-    case 'empty_trash':
-      return callN8N('mailpost/empty-trash');
-    default:
-      return { error: `Tool "${name}" not found` };
-  }
-}
-
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { message, history = [] } = await req.json() as {
-    message: string;
-    history?: Anthropic.MessageParam[];
-  };
+  const { messages } = await req.json();
 
-  const messages: Anthropic.MessageParam[] = [
-    ...history,
-    { role: 'user', content: message },
-  ];
-
-  let response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 2048,
+  const result = streamText({
+    model: anthropic('claude-sonnet-4-5'),
     system: SYSTEM_PROMPT,
-    tools: TOOLS,
     messages,
+    maxSteps: 10,
+    tools: {
+      send_email: tool({
+        description: "Envoie un email via Gmail au nom de l'utilisateur.",
+        parameters: z.object({
+          to: z.string().describe('Adresse email du destinataire'),
+          subject: z.string().describe("Sujet de l'email"),
+          body: z.string().describe('Corps du mail (texte brut)'),
+          from_name: z.string().optional().describe('Nom affiché expéditeur (défaut: MailPost)'),
+        }),
+        execute: async ({ to, subject, body, from_name }) =>
+          callN8N('mailpost/send-email', { to, subject, body, from_name }),
+      }),
+
+      get_inbox: tool({
+        description: 'Récupère les emails non lus de la boîte de réception (50 max).',
+        parameters: z.object({}),
+        execute: async () => callN8N('mailpost/get-inbox'),
+      }),
+
+      scan_newsletters: tool({
+        description: 'Scanne la boîte mail pour identifier les newsletters des 30 derniers jours.',
+        parameters: z.object({}),
+        execute: async () => callN8N('mailpost/scan-newsletters'),
+      }),
+
+      empty_trash: tool({
+        description: "Vide la corbeille Gmail de l'utilisateur.",
+        parameters: z.object({}),
+        execute: async () => callN8N('mailpost/empty-trash'),
+      }),
+    },
   });
 
-  // Boucle agentique — gestion tool_use
-  while (response.stop_reason === 'tool_use') {
-    const toolUseBlocks = response.content.filter(
-      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use'
-    );
-
-    const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
-      toolUseBlocks.map(async (block) => {
-        let result: unknown;
-        try {
-          result = await executeTool(block.name, block.input as Record<string, unknown>);
-        } catch (err) {
-          result = { error: String(err) };
-        }
-        return {
-          type: 'tool_result' as const,
-          tool_use_id: block.id,
-          content: JSON.stringify(result),
-        };
-      })
-    );
-
-    messages.push({ role: 'assistant', content: response.content });
-    messages.push({ role: 'user', content: toolResults });
-
-    response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      tools: TOOLS,
-      messages,
-    });
-  }
-
-  const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-  const text = textBlock?.text ?? '';
-
-  return NextResponse.json({
-    response: text,
-    history: [...messages, { role: 'assistant', content: response.content }],
-  });
+  return result.toDataStreamResponse();
 }

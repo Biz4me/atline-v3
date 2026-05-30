@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^1.2.12",
     "@anthropic-ai/sdk": "^0.100.1",
     "@atline/types": "workspace:*",
     "@auth/core": "^0.38.0",
@@ -21,6 +22,7 @@
     "@radix-ui/react-toast": "^1.2.14",
     "@stripe/stripe-js": "^5.8.0",
     "@xyflow/react": "^12.6.0",
+    "ai": "^4.3.19",
     "axios": "^1.9.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -33,7 +35,8 @@
     "react-markdown": "^10.1.0",
     "recharts": "^2.15.0",
     "stripe": "^17.7.0",
-    "tailwind-merge": "^3.3.0"
+    "tailwind-merge": "^3.3.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",
