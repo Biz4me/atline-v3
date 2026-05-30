@@ -1,5 +1,5 @@
 # ATLINE V3 — Récapitulatif complet
-> Mis à jour : 29 mai 2026
+> Mis à jour : 30 mai 2026 — **DÉPLOYÉ ET EN PRODUCTION** ✅
 
 ## 1. Vue d'ensemble
 
@@ -25,14 +25,18 @@ Atline V3 est un SaaS MLM IA déployé en monorepo pnpm sur VPS Hostinger.
 | **Mot de passe SSH** | `QiJ.MXJ;n?LY6e6p` |
 | **SSH hostkey** | `SHA256:Cy+n1H1jy6Ht+v3/ypLUtt25D6n2VKJzvYg7Aw36Nqc` |
 | **OS** | Ubuntu 22.04 |
-| **Process manager** | PM2 |
-| **Reverse proxy** | Nginx |
+| **Node.js** | 22.22.2 (installé via nodesource) |
+| **Process manager** | PM2 7.0.1 (auto-start via systemd) |
+| **Reverse proxy** | Traefik (file provider) |
+| **PostgreSQL** | Docker `atline-postgres` (port 127.0.0.1:5432) |
+| **Redis** | Docker `atline-redis` (port 0.0.0.0:6379, pw: AtlineRedis2025!) |
 
 ### Chemins VPS
 ```
-/opt/atline/apps/atline-v3/          ← repo cloné (git pull ici)
-/opt/atline/apps/atline-v3/apps/next-app/
-/opt/atline/apps/atline-v3/apps/payload-cms/
+/opt/atline/atline-v3/               ← repo cloné (git pull ici)
+/opt/atline/atline-v3/apps/next-app/
+/opt/atline/atline-v3/apps/payload-cms/
+/etc/traefik/dynamic/atline-v3.yml   ← config Traefik pour les deux domaines
 ```
 
 ### PM2 — ecosystem.config.cjs
@@ -66,7 +70,7 @@ pm2 restart atline-payload
 
 ### Déploiement VPS
 ```bash
-cd /opt/atline/apps/atline-v3
+cd /opt/atline/atline-v3
 git pull
 pnpm install --frozen-lockfile
 
@@ -151,7 +155,7 @@ NEXT_PUBLIC_WS_URL=wss://ws.atline.online
 
 # Quota simulateur
 MONTHLY_QUOTA_SECONDS=7200
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://:AtlineRedis2025!@localhost:6379
 ```
 
 ### `apps/payload-cms/.env` (VPS — NON dans le repo)
