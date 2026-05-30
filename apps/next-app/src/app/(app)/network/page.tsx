@@ -1,16 +1,19 @@
 import { Metadata } from 'next';
 import { auth } from '@/lib/auth';
 import { getNetworkTree, getNetworkStats } from '@/lib/affiliate';
+import { getPlacementData } from '@/lib/placement';
 import NetworkTree from '@/components/network/NetworkTree';
 import ReferralLinkCard from '@/components/network/ReferralLinkCard';
+import PlacementSection from '@/components/network/PlacementSection';
 
 export const metadata: Metadata = { title: 'Mon Réseau' };
 
 export default async function NetworkPage() {
   const session = await auth();
-  const [tree, stats] = await Promise.all([
+  const [tree, stats, placement] = await Promise.all([
     getNetworkTree(session!.user.id, session!.user.mlmLevel),
     getNetworkStats(session!.user.id),
+    getPlacementData(session!.user.id),
   ]);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.atline.online';
@@ -45,6 +48,12 @@ export default async function NetworkPage() {
           appUrl={appUrl}
         />
       )}
+
+      {/* Fenêtre de placement — visible uniquement si filleuls dans la fenêtre ET distributeurs cibles */}
+      <PlacementSection
+        placeables={placement.placeables}
+        targets={placement.targets}
+      />
 
       <NetworkTree data={tree} />
     </div>

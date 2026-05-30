@@ -1,13 +1,25 @@
 import type { CollectionConfig, CollectionBeforeChangeHook, CollectionAfterChangeHook } from 'payload';
 import { randomBytes } from 'node:crypto';
 
-// ── Hook : génère un inviteToken unique à la création ─────────────────────────
-const generateInviteToken: CollectionBeforeChangeHook = async ({ data, operation }) => {
-  if (operation !== 'create') return data;
-  if (!data.inviteToken) {
-    // 6 bytes → 8 chars base64url (64^8 ≈ 281 billions de combinaisons)
+// ── Hook : génère un inviteToken unique à la création (ou si manquant) ────────
+const generateInviteToken: CollectionBeforeChangeHook = async ({ data, operation, originalDoc }) => {
+  // Créer : toujours générer
+  if (operation === 'create' && !data.inviteToken) {
     data.inviteToken = randomBytes(6).toString('base64url');
   }
+  // Mettre à jour : générer seulement si l'utilisateur n'en a pas encore
+  if (operation === 'update' && !originalDoc?.inviteToken && !data.inviteToken) {
+    data.inviteToken = randomBytes(6).toString('base64url');
+  }
+  return data;
+};
+
+// ── Hook : définit la fenêtre de placement (création uniquement) ──────────────
+const setPlacementDeadline: CollectionBeforeChangeHook = async ({ data, operation }) => {
+  if (operation !== 'create') return data;
+  const deadline = new Date();
+  deadline.setDate(deadline.getDate() + 30); // J+30
+  data.placementDeadline = deadline.toISOString();
   return data;
 };
 
@@ -164,7 +176,7 @@ export const Users: CollectionConfig = {
   },
 
   hooks: {
-    beforeChange: [generateInviteToken, resolveEffectiveDistributor],
+    beforeChange: [generateInviteToken, setPlacementDeadline, resolveEffectiveDistributor],
     afterChange: [onRoleChange, updateDistributorCount],
   },
 
@@ -232,6 +244,21 @@ export const Users: CollectionConfig = {
         description: 'Token opaque pour le lien /invite/TOKEN — généré automatiquement',
       },
     },
+    {
+      name: 'placementDeadline',
+      type: 'date',
+      label: 'Fin de la fenêtre de placement',
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Jusqu\'à cette date, le parrain peut placer cet utilisateur sous un distributeur filleul (J+30 depuis l\'inscription)',
+        date: {
+          pickerAppearance: 'dayAndTime',
+          displayFormat: 'd MMM yyyy HH:mm',
+        },
+      },
+    },
+
     // Champ virtuel utilisé uniquement à l'inscription (non stocké)
     {
       name: 'referralCode_input',
