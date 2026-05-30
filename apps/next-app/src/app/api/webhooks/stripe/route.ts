@@ -2,18 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { addQuota } from '@/lib/quota';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
-// Mapping price_id → action Payload
-const PRICE_ACTIONS: Record<string, { field: string; value: unknown }> = {
-  [process.env.STRIPE_PRICE_LICENCE_YEARLY!]: { field: 'hasLicence', value: true },
-  [process.env.STRIPE_PRICE_COACH_MONTHLY!]: { field: 'hasCoach', value: true },
-};
-
-const EXTRA_HOUR_PRICE = process.env.STRIPE_PRICE_EXTRA_HOUR!;
+// Lazy init — ne plante pas au build si les vars Stripe ne sont pas définies
+function getStripe(): Stripe {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY is not configured');
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY);
+}
 
 export async function POST(req: NextRequest) {
+  const stripe = getStripe();
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+  // Mapping price_id → action Payload (résolu à runtime)
+  const PRICE_ACTIONS: Record<string, { field: string; value: unknown }> = {
+    [process.env.STRIPE_PRICE_LICENCE_YEARLY ?? '']: { field: 'hasLicence', value: true },
+    [process.env.STRIPE_PRICE_COACH_MONTHLY ?? '']: { field: 'hasCoach', value: true },
+  };
+  const EXTRA_HOUR_PRICE = process.env.STRIPE_PRICE_EXTRA_HOUR ?? '';
+
   const body = await req.text();
   const sig = req.headers.get('stripe-signature')!;
 
@@ -33,7 +40,7 @@ export async function POST(req: NextRequest) {
 
       if (!userId || !priceId) break;
 
-      if (priceId === EXTRA_HOUR_PRICE) {
+      if (EXTRA_HOUR_PRICE && priceId === EXTRA_HOUR_PRICE) {
         // Achat heure supplémentaire → +3600s dans Redis
         await addQuota(userId, 3600);
       } else if (PRICE_ACTIONS[priceId]) {
