@@ -30,3 +30,6 @@ Thumbs.db
 
 # Payload uploads
 apps/payload-cms/media
+
+# Infrastructure & credentials (CONFIDENTIEL)
+INFRA.md
