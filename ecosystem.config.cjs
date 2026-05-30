@@ -3,7 +3,7 @@ module.exports = {
     // ── Distributeur Next.js (port 3000) ─────────────────────────────────
     {
       name: 'atline-app',
-      cwd: '/opt/atline/apps/atline-v3/apps/next-app',
+      cwd: '/opt/atline/atline-v3/apps/next-app',
       script: 'npm',
       args: 'start',
       exec_mode: 'fork',
@@ -20,7 +20,7 @@ module.exports = {
     // ── Payload CMS Next.js (port 3002) ───────────────────────────────────
     {
       name: 'atline-payload',
-      cwd: '/opt/atline/apps/atline-v3/apps/payload-cms',
+      cwd: '/opt/atline/atline-v3/apps/payload-cms',
       script: 'npm',
       args: 'start',
       exec_mode: 'fork',
