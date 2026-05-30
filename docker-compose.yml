@@ -9,54 +9,56 @@ services:
       POSTGRES_PASSWORD: atline
       POSTGRES_DB: atline
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - atline
 
   redis:
     image: redis:7-alpine
     container_name: atline-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --save 60 1 --loglevel warning
+    networks:
+      - atline
 
-  # ─── Outils IA & Automation ───────────────────────────────
+  # ─── n8n — Agent MailPost & Automation ────────────────────
   n8n:
-    image: n8nio/n8n
+    image: docker.n8n.io/n8nio/n8n:latest
     container_name: atline-n8n
     restart: unless-stopped
     ports:
-      - "5678:5678"
+      - "127.0.0.1:5678:5678"
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=changeme
+      # URL publique
+      - N8N_HOST=n8n.atline.online
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_EDITOR_BASE_URL=https://n8n.atline.online
+      - WEBHOOK_URL=https://n8n.atline.online/
+      # Chiffrement des credentials (NE PAS CHANGER après premier démarrage)
+      - N8N_ENCRYPTION_KEY=4b0953d6c7f5a7388d5da1d815f751125946fe956f424d551a0f463367aa1461
+      # Base de données dédiée (user non-root)
       - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=postgres
-      - DB_POSTGRESDB_DATABASE=atline
-      - DB_POSTGRESDB_USER=atline
-      - DB_POSTGRESDB_PASSWORD=atline
+      - DB_POSTGRESDB_HOST=atline-postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8n_user
+      - DB_POSTGRESDB_PASSWORD=N8nAtline2026!
+      # Timezone
+      - GENERIC_TIMEZONE=Europe/Paris
+      - TZ=Europe/Paris
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
       - postgres
-
-  # ─── Cal.com ──────────────────────────────────────────────
-  calcom:
-    image: calcom/cal.com:latest
-    container_name: atline-calcom
-    restart: unless-stopped
-    ports:
-      - "5050:3000"
-    environment:
-      - DATABASE_URL=postgresql://atline:atline@postgres:5432/calcom
-      - NEXTAUTH_SECRET=changeme
-      - CALENDSO_ENCRYPTION_KEY=changeme_32chars
-    depends_on:
-      - postgres
+    networks:
+      - atline
 
   # ─── Portainer (supervision conteneurs) ───────────────────
   portainer:
@@ -68,6 +70,12 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
+    networks:
+      - atline
+
+networks:
+  atline:
+    external: true
 
 volumes:
   postgres_data:
