@@ -10,12 +10,20 @@ export async function middleware(req: NextRequest) {
   if (
     path.startsWith('/login') ||
     path.startsWith('/register') ||
+    path.startsWith('/devenir-distributeur') ||
     path.startsWith('/invite') ||
     path.startsWith('/api/auth') ||
-    path.startsWith('/api/register')
+    path.startsWith('/api/register') ||
+    path.startsWith('/api/search-sponsor') ||
+    path.startsWith('/api/validate-ref')
   ) {
-    // Déjà connecté → dashboard (sauf /invite qui gère sa propre redirection)
-    if (session && (path.startsWith('/login') || path.startsWith('/register'))) {
+    // Déjà connecté → dashboard
+    if (
+      session &&
+      (path.startsWith('/login') ||
+        path.startsWith('/register') ||
+        path.startsWith('/devenir-distributeur'))
+    ) {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
     return NextResponse.next();

@@ -2,11 +2,9 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function LoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -28,7 +26,8 @@ export default function LoginForm() {
       setError('Email ou mot de passe incorrect.');
       setLoading(false);
     } else {
-      router.push('/dashboard');
+      // Hard redirect pour que le cookie NextAuth soit lu côté serveur
+      window.location.href = '/dashboard';
     }
   }
 
@@ -45,7 +44,7 @@ export default function LoginForm() {
         <input
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value.toLowerCase())}
           required
           className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#f4b342] focus:border-transparent transition-all"
           placeholder="vous@exemple.com"

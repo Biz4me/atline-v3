@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import LoginForm from '@/components/auth/LoginForm';
 
-export const metadata: Metadata = { title: 'Connexion' };
+export const metadata: Metadata = { title: 'Connexion — Atline' };
 
 interface Props {
   searchParams: Promise<{ registered?: string }>;
@@ -33,6 +33,22 @@ export default async function LoginPage({ searchParams }: Props) {
           )}
           <h1 className="text-xl font-bold text-[#1e3c5c] mb-6">Connexion</h1>
           <LoginForm />
+
+          {/* Liens bas de page */}
+          <div className="mt-6 pt-5 border-t border-gray-100 space-y-2 text-center">
+            <p className="text-sm text-gray-500">
+              Pas encore de compte ?{' '}
+              <a href="/register" className="text-[#f4b342] font-semibold hover:underline">
+                S&apos;enregistrer
+              </a>
+            </p>
+            <p className="text-xs text-gray-400">
+              Vous souhaitez rejoindre notre réseau ?{' '}
+              <a href="/devenir-distributeur" className="text-[#1e3c5c] font-medium hover:underline">
+                Devenir distributeur →
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </main>

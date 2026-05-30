@@ -4,11 +4,12 @@ const COOKIE_NAME = 'atline_ref';
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password, referralCode } = await req.json();
+    const body = await req.json();
+    const { name, email, password, referralCode, pending_placement, role } = body;
 
-    if (!name || !email || !password || !referralCode) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Tous les champs sont obligatoires, y compris le code parrain.' },
+        { error: 'Tous les champs sont obligatoires.' },
         { status: 400 }
       );
     }
@@ -18,18 +19,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Service indisponible.' }, { status: 503 });
     }
 
-    // Crée l'utilisateur dans Payload CMS
-    // Le hook resolveEffectiveDistributor résout parrain + effectiveDistributor
+    // Construire le payload pour Payload CMS
+    // Le hook resolveEffectiveDistributor sur le serveur gérera le referralCode
+    const userPayload: Record<string, unknown> = {
+      name,
+      email,
+      password,
+      role: role ?? 'client',
+    };
+
+    if (referralCode) {
+      userPayload.referralCode_input = referralCode;
+    } else if (pending_placement) {
+      userPayload.pending_placement = true;
+    }
+
     const res = await fetch(`${payloadUrl}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-        role: 'client',
-        referralCode_input: referralCode,
-      }),
+      body: JSON.stringify(userPayload),
     });
 
     const data = await res.json();
@@ -42,12 +50,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: message }, { status: res.status });
     }
 
-    // Succès → effacer le cookie d'attribution (mission accomplie)
+    // Succès → effacer le cookie d'attribution
     const response = NextResponse.json({ success: true }, { status: 201 });
-    response.cookies.set(COOKIE_NAME, '', {
-      maxAge: 0,
-      path: '/',
-    });
+    response.cookies.set(COOKIE_NAME, '', { maxAge: 0, path: '/' });
     return response;
   } catch (err) {
     console.error('[register]', err);
