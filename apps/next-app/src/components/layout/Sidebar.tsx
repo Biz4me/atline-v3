@@ -6,7 +6,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard, Network, BadgeEuro, ShoppingBag,
   BookOpen, Mic, MessageSquare, Users, Calendar, Settings,
-  Lock,
+  Lock, Mail,
 } from 'lucide-react';
 
 interface NavItem {
@@ -19,6 +19,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard',        label: 'Dashboard',    icon: <LayoutDashboard size={18} /> },
   { href: '/network',          label: 'Mon Réseau',   icon: <Network size={18} /> },
+  { href: '/mailpost',         label: 'MailPost',     icon: <Mail size={18} /> },
   { href: '/commissions',      label: 'Commissions',  icon: <BadgeEuro size={18} /> },
   { href: '/catalogue',        label: 'Catalogue',    icon: <ShoppingBag size={18} /> },
   { href: '/coach/formations', label: 'Formations',   icon: <BookOpen size={18} />,       requiresCoach: true },
